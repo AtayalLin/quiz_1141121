@@ -13,12 +13,12 @@ public class QuestionId implements Serializable {
 
 	private int question_id;
 
-	protected QuestionId(int quiz_id, int question_id) {
+	public QuestionId(int quiz_id, int question_id) {
 		this.quiz_id = quiz_id;
 		this.question_id = question_id;
 	}
 
-	protected QuestionId() {
+	public QuestionId() {
 	}
 	
 	@Override

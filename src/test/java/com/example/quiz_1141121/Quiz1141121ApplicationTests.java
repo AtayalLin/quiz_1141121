@@ -16,5 +16,10 @@ class Quiz1141121ApplicationTests {
 	public void test() {
 		Quiz quiz = new Quiz ();
 	}
+	
+	@Test
+	public void test01() {
+		
+	}
 
 }

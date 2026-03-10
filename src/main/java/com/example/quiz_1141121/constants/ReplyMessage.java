@@ -5,6 +5,7 @@ public enum ReplyMessage {
 	SUCCESS(200, "Success!!"), //
 	TITLE_ERROR(400, "Title Error!!"), //
 	DESCRIPTION_ERROR(400, "Description Error!!"), //
+	INTRO_ERROR(400, "Intro Error!!"), //
 	START_DATE_ERROR(400, "Start Date Error !!"), //
 	END_DATE_ERROR(400, "End Date Error!!"), //
 	QUESTION_ID_ERROR(400, "Question Id Error!!"),//
@@ -24,10 +25,10 @@ public enum ReplyMessage {
 	USER_AGE_ERROR(400, "User Age Error!!"), //
 	USER_PASSWORD_ERROR(400, "User Password Error!!"), //
 	USER_EMAIL_EXISTED(400, "User Email Existed!!"), //
+	USER_NOT_FOUND(404, "User Not Found"),//
 	ANSWER_REQUIRED(400, "Answer Required!!"), //
-
-	
-	SAVE_FAILED(500, "Save Data Failed!!"); // 新增：資料庫儲存異常
+    SERVICE_ERROR(404, "Service Error !!"),
+	SAVE_FAILED(500, "Save Data Failed!!") ; // 新增：資料庫儲存異常
 	
 	private int code;
 	

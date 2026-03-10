@@ -22,7 +22,8 @@ import com.example.quiz_1141121.res.GetQuestionRes;
 import com.example.quiz_1141121.res.GetQuizRes;
 import com.example.quiz_1141121.res.UpdateRes;
 
-@Service
+
+@Service //已修正
 @Transactional(rollbackFor = Exception.class)
 public class QuizService {
 
@@ -49,11 +50,16 @@ public class QuizService {
 			/* 2. 執行新增問卷主體 (quiz 表) */
 			quizDao.insertQuiz(
 					req.getTitle(), 
-					req.getDescription(), 
+					req.getType(),     // 修正：補上問卷類型
+					req.getIntro(),    // 修正：使用 intro 欄位
 					req.getStart_date(),
 					req.getEnd_date(), 
-					req.isPublished()
-			);
+					req.isPublished(),
+					req.isCollectName(), 
+					req.isCollectPhone(), 
+					req.isCollectEmail(),
+					req.isRequireAge()
+					);
 
 			/* 3. 取得剛剛新增的那筆問卷 ID (用於關聯題目) 
 			 * 註：如果是使用 JPA 的 save()，可以直接從回傳物件拿到 ID
@@ -68,7 +74,9 @@ public class QuizService {
 						item.getQuestion(),    // 題目內容
 						item.getType(),        // 題目類型 (single/multi/text)
 						item.isRequired(),     // 是否必填
-						item.getOptions()       // 選項內容 (用分號串接)
+						item.getOptions(),       // 選項內容 (用分號串接)
+						item.isIs_dependent(),
+						item.getParent_id()
 				);
 			}
 
@@ -87,14 +95,14 @@ public class QuizService {
 	 */
 	private CreateRes checkParams(CreateReq req) {
 		// 檢查問卷標題
-		if (!StringUtils.hasText(req.getTitle())) {
-			return new CreateRes(ReplyMessage.TITLE_ERROR.getCode(), ReplyMessage.TITLE_ERROR.getMessage());
-		}
+//		if (!StringUtils.hasText(req.getTitle())) {
+//			return new CreateRes(ReplyMessage.TITLE_ERROR.getCode(), ReplyMessage.TITLE_ERROR.getMessage());
+//		}
 		
 		// 檢查問卷描述
-		if (!StringUtils.hasText(req.getDescription())) {
-			return new CreateRes(ReplyMessage.DESCRIPTION_ERROR.getCode(), ReplyMessage.DESCRIPTION_ERROR.getMessage());
-		}
+//		if (!StringUtils.hasText(req.getIntro())) {
+//			return new CreateRes(ReplyMessage.DESCRIPTION_ERROR.getCode(), ReplyMessage.DESCRIPTION_ERROR.getMessage());
+//		}
 
 		// 檢查開始時間：不能為空，且不能晚於結束時間
 		if (req.getStart_date() == null || req.getEnd_date() == null) {
@@ -103,38 +111,49 @@ public class QuizService {
 		
 		// 邏輯檢查：開始時間不能在結束時間之後
 		if (req.getStart_date().isAfter(req.getEnd_date())) {
-			return new CreateRes(ReplyMessage.START_DATE_ERROR.getCode(), ReplyMessage.START_DATE_ERROR.getMessage());
+			return new CreateRes(ReplyMessage.START_DATE_ERROR.getCode(), //
+					ReplyMessage.START_DATE_ERROR.getMessage());
 		}
 
 		// 檢查結束時間：不能早於今天
 		if (req.getEnd_date().isBefore(LocalDate.now())) {
-			return new CreateRes(ReplyMessage.END_DATE_ERROR.getCode(), ReplyMessage.END_DATE_ERROR.getMessage());
+			return new CreateRes(ReplyMessage.END_DATE_ERROR.getCode(), //
+					ReplyMessage.END_DATE_ERROR.getMessage());
 		}
 
 		// 檢查題目列表：至少要有一題
 		if (req.getQuestionList() == null || req.getQuestionList().isEmpty()) {
-			return new CreateRes(ReplyMessage.QUESTION_LIST_EMPTY.getCode(), ReplyMessage.QUESTION_LIST_EMPTY.getMessage());
+			return new CreateRes(ReplyMessage.QUESTION_LIST_EMPTY.getCode(), //
+					ReplyMessage.QUESTION_LIST_EMPTY.getMessage());
 		}
 
 		// 逐題檢查內容
 		for (Questions item : req.getQuestionList()) {
 			// 檢查題號
 			if (item.getQuestion_id() <= 0) {
-				return new CreateRes(ReplyMessage.QUESTION_ID_ERROR.getCode(), ReplyMessage.QUESTION_ID_ERROR.getMessage(), item.getQuestion_id());
+				return new CreateRes(ReplyMessage.QUESTION_ID_ERROR.getCode(), //
+						ReplyMessage.QUESTION_ID_ERROR.getMessage(), item.getQuestion_id());
 			}
 			// 檢查題目文字
 			if (!StringUtils.hasText(item.getQuestion())) {
-				return new CreateRes(ReplyMessage.QUESTION_ERROR.getCode(), ReplyMessage.QUESTION_ERROR.getMessage(), item.getQuestion_id());
+				return new CreateRes(ReplyMessage.QUESTION_ERROR.getCode(), //
+						ReplyMessage.QUESTION_ERROR.getMessage(), item.getQuestion_id());
 			}
 			// 檢查題目類型 (single/multi/text)
 			if (!Type.check(item.getType())) {
-				return new CreateRes(ReplyMessage.TYPE_ERROR.getCode(), ReplyMessage.TYPE_ERROR.getMessage(), item.getQuestion_id());
+				return new CreateRes(ReplyMessage.TYPE_ERROR.getCode(), 
+						ReplyMessage.TYPE_ERROR.getMessage(), item.getQuestion_id());
 			}
 			// 檢查選項內容：若非簡答題 (TEXT)，則選項 (Options) 必須有內容
 			if (!item.getType().equalsIgnoreCase(Type.TEXT.getType())) {
 				if (!StringUtils.hasText(item.getOptions())) {
 					return new CreateRes(ReplyMessage.OPTIONS_ERROR.getCode(), ReplyMessage.OPTIONS_ERROR.getMessage(), item.getQuestion_id());
 				}
+			}
+			// 邏輯檢查：若是承上題，則 parent_id 不能為空
+			if (item.isIs_dependent() && (item.getParent_id() == null || item.getParent_id() <= 0)) {
+				return new CreateRes(ReplyMessage.QUESTION_ERROR.getCode(),//
+						   "承上題必須設定父題目ID", item.getQuestion_id());
 			}
 		}
 		return null; // 通過所有檢查
@@ -167,23 +186,46 @@ public class QuizService {
         try {
             Quiz existingQuiz = quizDao.getById(req.getId());
             if (existingQuiz == null) {
-                return new UpdateRes(ReplyMessage.QUIZ_NOT_FOUND.getCode(), ReplyMessage.QUIZ_NOT_FOUND.getMessage());
+                return new UpdateRes(ReplyMessage.QUIZ_NOT_FOUND.getCode(), //
+                		ReplyMessage.QUIZ_NOT_FOUND.getMessage());
             }
 
             // 調用 QuizDao 的 update
-            quizDao.update(req.getId(), req.getTitle(), req.getDescription(), req.getStart_date(), req.getEnd_date(), req.isPublished());
+            quizDao.update(
+            		req.getId(), 
+            		req.getTitle(), 
+            		req.getType(), 
+            		req.getIntro(), 
+            		req.getStart_date(), 
+            		req.getEnd_date(), 
+            		req.isPublished(),
+            		req.isCollectName(), 
+            		req.isCollectPhone(), 
+            		req.isCollectEmail(),
+            		req.isRequireAge()
+            		);
 
             // 修正：調用 QuestionsDao 的 deleteByQuizId (清空該問卷舊題目)
             questionsDao.deleteByQuizId(req.getId());
 
             for (Questions item : req.getQuestionList()) {
-                questionsDao.insertQuestion(req.getId(), item.getQuestion_id(), item.getQuestion(), item.getType(), item.isRequired(), item.getOptions());
+                questionsDao.insertQuestion(
+                		req.getId(), 
+                		item.getQuestion_id(), 
+                		item.getQuestion(), 
+                		item.getType(), 
+                		item.isRequired(), 
+                		item.getOptions(),
+                		item.isIs_dependent(),
+                		item.getParent_id()
+                		);
             }
         } catch (Exception e) {
             e.printStackTrace();
             throw e;
         }
-        return new UpdateRes(ReplyMessage.SUCCESS.getCode(), ReplyMessage.SUCCESS.getMessage());
+        return new UpdateRes(ReplyMessage.SUCCESS.getCode(),//
+        		ReplyMessage.SUCCESS.getMessage());
     }
 
 	/**
@@ -192,7 +234,8 @@ public class QuizService {
 	private UpdateRes checkUpdateParams(CreateReq req) {
 		// 檢查 ID 是否存在於 Request 中
 		if (req.getId() <= 0) {
-			return new UpdateRes(ReplyMessage.QUIZ_ID_ERROR.getCode(), ReplyMessage.QUIZ_ID_ERROR.getMessage());
+			return new UpdateRes(ReplyMessage.QUIZ_ID_ERROR.getCode(), //
+					ReplyMessage.QUIZ_ID_ERROR.getMessage());
 		}
 
 		// 呼叫通用檢查
@@ -230,12 +273,33 @@ public class QuizService {
         return new BasicRes(ReplyMessage.SUCCESS.getCode(), ReplyMessage.SUCCESS.getMessage());
     }
     
+    // 刪除
     private BasicRes checkDeleteParams(List<Integer> ids) {
         if (CollectionUtils.isEmpty(ids)) {
             return new BasicRes(ReplyMessage.QUIZ_ID_ERROR.getCode(), "請選擇要刪除的問卷");
         }
         return null;
     }
-	
+    
+    public BasicRes unpublish(int id) {
+        Quiz quiz = quizDao.getById(id);
+        if (quiz == null) {
+            return new BasicRes(ReplyMessage.QUIZ_NOT_FOUND.getCode(),
+                    ReplyMessage.QUIZ_NOT_FOUND.getMessage());
+        }
+        quizDao.updatePublishStatus(id, false);
+        return new BasicRes(ReplyMessage.SUCCESS.getCode(),
+                ReplyMessage.SUCCESS.getMessage());
+    }
 
+    public BasicRes publish(int id) {
+        Quiz quiz = quizDao.getById(id);
+        if (quiz == null) {
+            return new BasicRes(ReplyMessage.QUIZ_NOT_FOUND.getCode(),
+                    ReplyMessage.QUIZ_NOT_FOUND.getMessage());
+        }
+        quizDao.updatePublishStatus(id, true);
+        return new BasicRes(ReplyMessage.SUCCESS.getCode(),
+                ReplyMessage.SUCCESS.getMessage());
+    }
 }

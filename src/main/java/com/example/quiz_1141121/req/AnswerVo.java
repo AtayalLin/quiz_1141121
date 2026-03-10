@@ -4,6 +4,11 @@ import com.example.quiz_1141121.entity.Questions;
 
 /* 一個 AnswerVo 表示一題問題的所有資訊以及答案 */
 public class AnswerVo {
+	
+	public AnswerVo(Questions question) {
+		super();
+		this.question = question;
+	}
 
 	private Questions question;
 	

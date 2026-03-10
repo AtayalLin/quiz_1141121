@@ -7,7 +7,6 @@ public class DeleteReq {
 
 	public DeleteReq() {
 		super();
-		// TODO Auto-generated constructor stub
 	}
 
 	public DeleteReq(List<Integer> quizIdList) {

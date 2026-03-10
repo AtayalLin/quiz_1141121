@@ -28,11 +28,4 @@
 			this.questionid = questionid;
 		}
 	
-		
-	
-		
-	
-		
-		
-	
 	}
